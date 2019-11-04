@@ -16,31 +16,25 @@
 #include <thread>
 #include <vector>
 
-class TestWorld : public AbstractWorld {
+class OrnamentalBoxWorld : public AbstractWorld {
 
 public:
-  static std::shared_ptr<ParameterLink<int>> modePL;
-  static std::shared_ptr<ParameterLink<int>> numberOfOutputsPL;
-  static std::shared_ptr<ParameterLink<int>> evaluationsPerGenerationPL;
+  static std::shared_ptr<ParameterLink<std::string>> 
+  groupNamePL;
 
-  // int mode;
-  // int numberOfOutputs;
-  // int evaluationsPerGeneration;
+  static std::shared_ptr<ParameterLink<std::string>> 
+  brainNamePL;
 
-  static std::shared_ptr<ParameterLink<std::string>> groupNamePL;
-  static std::shared_ptr<ParameterLink<std::string>> brainNamePL;
-  // string groupName;
-  // string brainName;
+  OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_ = nullptr);
+  virtual ~OrnamentalBoxWorld() = default;
 
-  TestWorld(std::shared_ptr<ParametersTable> PT_ = nullptr);
-  virtual ~TestWorld() = default;
-
-  void evaluateSolo(std::shared_ptr<Organism> org, int analyze,
-                            int visualize, int debug);
-  void evaluate(std::map<std::string, std::shared_ptr<Group>> &groups,
-                int analyze, int visualize, int debug);
+  // void
+  // evaluateSolo(std::shared_ptr<Organism> org, int analyze, int visualize, int debug);
+  
+  void
+  evaluate(std::map<std::string, std::shared_ptr<Group>> &groups, int analyze, int visualize, int debug);
 
   virtual std::unordered_map<std::string, std::unordered_set<std::string>>
-    requiredGroups() override;
+  requiredGroups() override;
 };
 
