@@ -10,14 +10,39 @@
 
 #include "OrnamentalBoxWorld.h"
 
-std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::groupNamePL = Parameters::register_parameter("WORLD_TEST_NAMES-groupNameSpace", (std::string) "root::", "namespace of group to be evaluated");
-std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::brainNamePL = Parameters::register_parameter( "WORLD_TEST_NAMES-brainNameSpace", (std::string) "root::", "namespace for parameters used to define brain");
+std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::groupNamePL = Parameters::register_parameter("WORLD_ORNAMENTALBOX_NAMES-groupNameSpace", (std::string) "root::", "namespace of group to be evaluated");
+std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::brainNamePL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX_NAMES-brainNameSpace", (std::string) "root::", "namespace for parameters used to define brain");
+
+std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::visualQualiaPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-visualQualia", (int) 3, "number of visual cues");
+std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::touchQualiaPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-touchQualia", (int) 1, "number of tactile cues");
+std::shared_ptr<ParameterLink<bool>> OrnamentalBoxWorld::boxFacingPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-boxFacing", (bool) 0, "do boxes indicate NSEW facing?");
+
+void
+OrnamentalBoxWorld::print_grid(){
+  for (auto & row:grid){
+    for (auto& col:row){
+      std::cout << col;
+    }
+    std::cout << std::endl;
+  }
+}
 
 OrnamentalBoxWorld::OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_): AbstractWorld(PT_) {
   // columns to be added to ave file
   popFileColumns.clear();
   popFileColumns.push_back("score_sender");
   popFileColumns.push_back("score_receiver");
+
+  // build grid
+  grid = std::vector<std::vector<int>>(15, std::vector<int>(15, 0));
+  // 15x15 grid with boxes placed with 3 spaces between them
+  for (int r = 1; r <= 3; r++){
+    for (int c = 1; c <= 3; c++){
+      grid[(4*r)-1][(4*c)-1] = (r-1)*3+c; //TODO replace 1 with box value (binary features)
+    }
+  }
+
+  print_grid();
 }
 
 // void
