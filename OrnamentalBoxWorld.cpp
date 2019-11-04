@@ -16,7 +16,8 @@ std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::brainNamePL = Pa
 OrnamentalBoxWorld::OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_): AbstractWorld(PT_) {
   // columns to be added to ave file
   popFileColumns.clear();
-  popFileColumns.push_back("score");
+  popFileColumns.push_back("score_sender");
+  popFileColumns.push_back("score_receiver");
 }
 
 // void
@@ -42,10 +43,17 @@ OrnamentalBoxWorld::OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_): Ab
 // }
 
 void
+OrnamentalBoxWorld::evaluateDuo(std::shared_ptr<Organism> sender, std::shared_ptr<Organism> receiver, int analyze, int visualize, int debug){
+
+  sender->dataMap.append("score_sender", 1); //TODO hardcoded score value
+  receiver->dataMap.append("score_receiver", 1); //TODO hardcoded score value
+}
+
+void
 OrnamentalBoxWorld::evaluate(std::map<std::string, std::shared_ptr<Group>> &groups, int analyze, int visualize, int debug) {
   int popSize = groups[groupNamePL->get(PT)]->population.size();
   for (int i = 0; i < popSize; i++) {
-    // evaluateSolo(groups[groupNamePL->get(PT)]->population[i], analyze, visualize, debug);
+    evaluateDuo(groups[groupNamePL->get(PT)]->population[i], groups[groupNamePL->get(PT)]->population[(i+1)%popSize], analyze, visualize, debug);
   }
 }
 

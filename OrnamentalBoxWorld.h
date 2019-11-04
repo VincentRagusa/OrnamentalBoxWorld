@@ -28,8 +28,8 @@ public:
   OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_ = nullptr);
   virtual ~OrnamentalBoxWorld() = default;
 
-  // void
-  // evaluateSolo(std::shared_ptr<Organism> org, int analyze, int visualize, int debug);
+  void
+  evaluateDuo(std::shared_ptr<Organism> sender, std::shared_ptr<Organism> receiver, int analyze, int visualize, int debug);
   
   void
   evaluate(std::map<std::string, std::shared_ptr<Group>> &groups, int analyze, int visualize, int debug);
