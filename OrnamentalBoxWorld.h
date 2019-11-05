@@ -57,15 +57,15 @@ public:
 class AgentAvatar {
   public:
     int
-    x,y, heading, target_box;
+    r,c, heading, target_box, v, t;
 
     bool
     sender; //false if receiver
 
     std::vector<std::vector<int>>& grid, boxes;
 
-    AgentAvatar(std::vector<std::vector<int>>& grid_, std::vector<std::vector<int>>& boxes_, int target_box_, bool sender_) :
-      grid(grid_), boxes(boxes_), target_box(target_box_), sender(sender_) {}
+    AgentAvatar(std::vector<std::vector<int>>& grid_, std::vector<std::vector<int>>& boxes_, int target_box_, bool sender_, int v_, int t_) :
+      grid(grid_), boxes(boxes_), target_box(target_box_), sender(sender_), v(v_), t(t_) {}
 
     void
     walk(int movement_ID);
@@ -74,6 +74,12 @@ class AgentAvatar {
     respawn();
 
     std::vector<int>
-    get_vision_vector();
+    get_sensor_vector();
+
+    void
+    vision_helper(std::vector<int>& vision,int& i, int ro, int co);
+
+    void
+    touch_helper(std::vector<int>& vision, int& i, int ro, int co);
 
 };
