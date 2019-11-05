@@ -25,9 +25,11 @@ public:
   
   static std::shared_ptr<ParameterLink<int>> visualQualiaPL;
   static std::shared_ptr<ParameterLink<int>> touchQualiaPL;
+  static std::shared_ptr<ParameterLink<int>> messageSizePL;
+  static std::shared_ptr<ParameterLink<int>> lifetimePL;
 
   int
-  visualQualia, touchQualia, targetBox;
+  visualQualia, touchQualia, targetBox, messageSize, input_size, output_size, lifetime;
 
   bool
   boxFacing;
@@ -82,4 +84,6 @@ class AgentAvatar {
     void
     touch_helper(std::vector<int>& vision, int& i, int ro, int co);
 
+    int
+    get_touch_box();
 };
