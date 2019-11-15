@@ -17,45 +17,6 @@
 #include <thread>
 #include <vector>
 
-class OrnamentalBoxWorld : public AbstractWorld {
-
-public:
-  static std::shared_ptr<ParameterLink<std::string>> groupNamePL;
-  static std::shared_ptr<ParameterLink<std::string>> brainNamePL;
-  
-  static std::shared_ptr<ParameterLink<int>> visualQualiaPL;
-  static std::shared_ptr<ParameterLink<int>> touchQualiaPL;
-  static std::shared_ptr<ParameterLink<int>> messageSizePL;
-  static std::shared_ptr<ParameterLink<int>> lifetimePL;
-
-  int
-  visualQualia, touchQualia, targetBox, messageSize, input_size, output_size, lifetime;
-
-  bool
-  boxFacing;
-
-  std::vector<std::vector<int>>
-  grid, boxes;
-
-  OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_ = nullptr);
-  virtual ~OrnamentalBoxWorld() = default;
-
-  void
-  print_grid();
-
-  void
-  randomize_boxes();
-
-  void
-  evaluateDuo(std::shared_ptr<Organism> sender, std::shared_ptr<Organism> receiver, int analyze, int visualize, int debug);
-  
-  void
-  evaluate(std::map<std::string, std::shared_ptr<Group>> &groups, int analyze, int visualize, int debug);
-
-  virtual std::unordered_map<std::string, std::unordered_set<std::string>>
-  requiredGroups() override;
-};
-
 class AgentAvatar {
   public:
     int
@@ -87,3 +48,50 @@ class AgentAvatar {
     int
     get_touch_box();
 };
+
+class OrnamentalBoxWorld : public AbstractWorld {
+
+public:
+  static std::shared_ptr<ParameterLink<std::string>> groupNamePL;
+  static std::shared_ptr<ParameterLink<std::string>> brainNamePL;
+  
+  static std::shared_ptr<ParameterLink<int>> visualQualiaPL;
+  static std::shared_ptr<ParameterLink<int>> touchQualiaPL;
+  static std::shared_ptr<ParameterLink<int>> messageSizePL;
+  static std::shared_ptr<ParameterLink<int>> lifetimePL;
+  static std::shared_ptr<ParameterLink<int>> evaluationsPerGenerationPL;
+  static std::shared_ptr<ParameterLink<int>> brainUpdatesPL;
+  static std::shared_ptr<ParameterLink<bool>> messageAlwaysGivenPL;
+  static std::shared_ptr<ParameterLink<bool>> makeUniqueBoxesPL; 
+
+  int
+  visualQualia, touchQualia, targetBox, messageSize, input_size, output_size, lifetime, evaluationsPerGeneration, brainUpdates;
+
+  bool
+  boxFacing, messageAlwaysGiven, makeUniqueBoxes;
+
+  std::vector<std::vector<int>>
+  grid, boxes;
+
+  OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_ = nullptr);
+  virtual ~OrnamentalBoxWorld() = default;
+
+  void
+  print_grid();
+
+  void
+  print_grid(AgentAvatar agent);
+
+  void
+  randomize_boxes(bool makeUnique);
+
+  void
+  evaluateDuo(std::shared_ptr<Organism> sender, std::shared_ptr<Organism> receiver, int analyze, int visualize, int debug);
+  
+  void
+  evaluate(std::map<std::string, std::shared_ptr<Group>> &groups, int analyze, int visualize, int debug);
+
+  virtual std::unordered_map<std::string, std::unordered_set<std::string>>
+  requiredGroups() override;
+};
+

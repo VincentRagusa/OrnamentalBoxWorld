@@ -16,7 +16,12 @@ std::shared_ptr<ParameterLink<std::string>> OrnamentalBoxWorld::brainNamePL = Pa
 std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::visualQualiaPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-visualQualia", (int) 3, "number of visual cues");
 std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::touchQualiaPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-touchQualia", (int) 1, "number of tactile cues");
 std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::messageSizePL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-messageSize", (int) 4, "number of bits an agent can send to their partner");
-std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::lifetimePL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-lifetime", (int) 1000, "agent evaluation timeout");
+std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::lifetimePL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-lifetime", (int) 512, "agent evaluation timeout");
+std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::evaluationsPerGenerationPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-evaluationsPerGeneration", (int) 16, "agent re-evaluation count");
+std::shared_ptr<ParameterLink<int>> OrnamentalBoxWorld::brainUpdatesPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-brainUpdates", (int) 1, "number of brain updates allowed between input and output");
+std::shared_ptr<ParameterLink<bool>> OrnamentalBoxWorld::messageAlwaysGivenPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-messageAlwaysGiven", (bool) 0, "does the receiver always know the message");
+std::shared_ptr<ParameterLink<bool>> OrnamentalBoxWorld::makeUniqueBoxesPL = Parameters::register_parameter( "WORLD_ORNAMENTALBOX-makeUniqueBoxes", (bool) 0, "are all of the boxes unique");
+
 
 void
 OrnamentalBoxWorld::print_grid(){
@@ -29,19 +34,87 @@ OrnamentalBoxWorld::print_grid(){
 }
 
 void
-OrnamentalBoxWorld::randomize_boxes(){
-  for (auto& box:boxes){
-    for (auto& qualia:box){
-      qualia = Random::getInt(1);
+OrnamentalBoxWorld::print_grid(AgentAvatar agent){
+  for (int r = 0; r < grid.size(); r++){
+    for (int c = 0; c < grid.size(); c++){
+      if (agent.r == r and agent.c == c){
+        switch (agent.heading){
+          case 0:
+            std::cout << "^";
+            break;
+          case 1:
+            std::cout << ">";
+            break;
+          case 2:
+            std::cout << "v";
+            break;
+          case 3:
+            std::cout << "<";
+            break;
+        }
+      }
+      else {
+        std::cout << grid[r][c];
+      }
     }
+    std::cout << std::endl;
   }
-  targetBox = Random::getInt(8) + 1;
+  std::cout << std::endl;
 }
+
+void
+OrnamentalBoxWorld::randomize_boxes(bool makeUnique){
+  if (makeUnique){
+    if (visualQualia + touchQualia < 4){
+      std::cout << "(OrnamentalBoxWorld) WARNING: Cannot make boxes unique! need more qualia." << std::endl;
+      std::cout << "Spawning using alternate method..." << std::endl;
+      randomize_boxes(false);
+      return;
+    }
+
+    int box = 0;
+    std::vector<int> temp_set = std::vector<int>(visualQualia+touchQualia, 0);
+    bool check, boxcheck;
+    while(box < boxes.size()){
+      for (int q = 0; q < visualQualia + touchQualia; q++){
+        temp_set[q] = Random::getInt(1);
+      } 
+      check = true;
+      for (int cbox = 0; cbox < box; cbox++){
+        boxcheck = false;
+        for (int bit = 0; bit < visualQualia + touchQualia; bit++){
+          boxcheck = boxcheck || (boxes[cbox][bit] != temp_set[bit]);
+        }
+        check = check && boxcheck;
+      }
+      if (check){
+        for (int q = 0; q < visualQualia + touchQualia; q++){
+          boxes[box][q] = temp_set[q];
+        }
+        box++;
+      }
+    }
+    targetBox = Random::getInt(8) + 1;
+  }
+  else{
+    for (auto& box:boxes){
+      for (auto& qualia:box){
+        qualia = Random::getInt(1);
+      }
+    }
+    targetBox = Random::getInt(8) + 1;
+  }
+}
+
+
 
 OrnamentalBoxWorld::OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_): AbstractWorld(PT_) {
   // columns to be added to ave file
   popFileColumns.clear();
-  popFileColumns.push_back("score_sender");
+  popFileColumns.push_back("receiver_attempts");
+  popFileColumns.push_back("receiver_found_item");
+  popFileColumns.push_back("receiver_walking");
+  // popFileColumns.push_back("score_sender");
   popFileColumns.push_back("score_receiver");
 
   //grab parameters from PLs
@@ -49,8 +122,12 @@ OrnamentalBoxWorld::OrnamentalBoxWorld(std::shared_ptr<ParametersTable> PT_): Ab
   touchQualia = touchQualiaPL->get(PT);
   messageSize = messageSizePL->get(PT);
   lifetime = lifetimePL->get(PT);
+  evaluationsPerGeneration = evaluationsPerGenerationPL->get(PT);
+  brainUpdates = brainUpdatesPL->get(PT);
+  messageAlwaysGiven = messageAlwaysGivenPL->get(PT);
+  makeUniqueBoxes = makeUniqueBoxesPL->get(PT);
 
-  input_size = (visualQualia + 1)*14 + touchQualia + 1 + messageSize; //all vision, all touch, message buffer
+  input_size = 1 + (visualQualia + 1)*14 + touchQualia + 1 + messageSize; //context bit, all vision, all touch, secret item sensor, message buffer
   output_size = 2 + messageSize + 1; //movement, message buffer, send/select
 
   // build grid 15x15 grid with boxes placed with 3 spaces between them
@@ -93,10 +170,12 @@ AgentAvatar::walk(int movement_ID){
       break;
     case 1:
       //turn left
-      heading = (heading - 1) % 4;
+      heading--;
+      while(heading < 0) heading += 4;
       break;
     case 2:
-      heading = (heading + 1) % 4;
+      heading++;
+      while(heading > 3) heading -= 4;
       //turn right
       break;
     default:
@@ -243,108 +322,106 @@ AgentAvatar::get_touch_box(){
   }
 }
 
-// void
-// OrnamentalBoxWorld::evaluateSolo(std::shared_ptr<Organism> org, int analyze, int visualize, int debug) {
-//   auto brain = org->brains[brainNamePL->get(PT)];
-//   for (int r = 0; r < evaluationsPerGenerationPL->get(PT); r++) {
-//     brain->resetBrain();
-//     brain->setInput(0, 1);
-//     brain->update();
-//     double score = 0.0;
-//     for (int i = 0; i < brain->nrOutputValues; i++) {
-//       if (modePL->get(PT) == 0)
-//         score += Bit(brain->readOutput(i));
-//       else
-//         score += brain->readOutput(i);
-//     }
-//     if (score < 0.0)
-//       score = 0.0;
-//     org->dataMap.append("score", score);
-//     if (visualize)
-//       std::cout << "organism with ID " << org->ID << " scored " << score << std::endl;
-//   }
-// }
-
 void
 OrnamentalBoxWorld::evaluateDuo(std::shared_ptr<Organism> sender, std::shared_ptr<Organism> receiver, int analyze, int visualize, int debug){
   auto sender_brain = sender->brains[brainNamePL->get(PT)];
   auto receiver_brain = receiver->brains[brainNamePL->get(PT)];
 
-  sender_brain->resetBrain();
-  receiver_brain->resetBrain();
+  for (int eval = 0; eval < evaluationsPerGeneration; eval++){
 
-  randomize_boxes();
-  std::vector<int> temp_senses, message;
-  message = std::vector<int> (messageSize, 0);
-  int in, out;
+    sender_brain->resetBrain();
+    receiver_brain->resetBrain();
 
-  //sender phase...
-  AgentAvatar sender_avatar = AgentAvatar(grid,boxes,targetBox,true,visualQualia,touchQualia);
-  sender_avatar.respawn();
-  int sender_walk_count = 0;
-  double sender_score = 0;
-  for (int t = 0; t< lifetime; t++){
-    // set input
-    temp_senses = sender_avatar.get_sensor_vector();
-    in = 0;
-    for (auto& s:temp_senses) sender_brain->setInput(in++, s);
-    for (int m = 0; m < messageSize; m++) sender_brain->setInput(in++, 0);
-    // brain update
-    sender_brain->update();
-    // update world
-    out = 0;
-    auto move_ID = Bit(sender_brain->readOutput(out++))*2 + Bit(sender_brain->readOutput(out++));
-    sender_avatar.walk(move_ID);
-    if (move_ID == 3) sender_score += (1/++sender_walk_count);
-    if (Bit(sender_brain->readOutput(out++))){
-      for (int m = 0; m < messageSize; m++) message[m] = sender_brain->readOutput(out++);
-      sender_score += 1;
-      break;
-    }
-  }
+    randomize_boxes(makeUniqueBoxes);
+    std::vector<int> temp_senses, message;
+    message = std::vector<int> (messageSize, 0);
+    int in, out;
 
+    // //sender phase...
+    // AgentAvatar sender_avatar = AgentAvatar(grid,boxes,targetBox,true,visualQualia,touchQualia);
+    // sender_avatar.respawn();
+    // int sender_walk_count = 0;
+    // double sender_score = 0;
 
-  // //receiver phase...
-  AgentAvatar receiver_avatar = AgentAvatar(grid,boxes,targetBox,false,visualQualia,touchQualia);
-  receiver_avatar.respawn();
-  int receiver_walk_count = 0;
-  double receiver_score = 0;
-  bool first_eval = true;
-  int receiver_attempts = 0;
-  for (int t = 0; t< lifetime; t++){
-    // set input
-    temp_senses = receiver_avatar.get_sensor_vector();
-    in = 0;
-    for (auto& s:temp_senses) receiver_brain->setInput(in++, s);
-    if (first_eval){
-      for (int m = 0; m < messageSize; m++) receiver_brain->setInput(in++, message[m]);
-      first_eval = false;
-    }
-    else{
-      for (int m = 0; m < messageSize; m++) receiver_brain->setInput(in++, 0);
-    }
-    // brain update
-    receiver_brain->update();
-    // update world
-    out = 0;
-    auto move_ID = Bit(receiver_brain->readOutput(out++))*2 + Bit(receiver_brain->readOutput(out++));
-    receiver_avatar.walk(move_ID);
-    if (move_ID == 3) receiver_score += (1/++receiver_walk_count);
-    if (Bit(receiver_brain->readOutput(out++))){
-      if (receiver_avatar.get_touch_box() == targetBox){
-        receiver_attempts++;
-        sender_score += 9-receiver_attempts;
-        receiver_score += 9-receiver_attempts;
+    // for (int t = 0; t< lifetime; t++){
+    //   if (debug || visualize) print_grid(sender_avatar);
+    //   // set input
+    //   temp_senses = sender_avatar.get_sensor_vector();
+    //   in = 0;
+    //   sender_brain->setInput(in++, 0); //context bit is 0 for sender
+    //   for (auto& s:temp_senses) sender_brain->setInput(in++, s);
+    //   for (int m = 0; m < messageSize; m++) sender_brain->setInput(in++, 0);
+    //   // brain update
+    //   for (int bu = 0; bu < brainUpdates; bu++) sender_brain->update();
+    //   // update world
+    //   out = 0;
+    //   auto move_ID = Bit(sender_brain->readOutput(out++))*2 + Bit(sender_brain->readOutput(out++));
+    //   sender_avatar.walk(move_ID);
+    //   // if (move_ID == 3) sender_score += (1/std::pow(2,++sender_walk_count));
+    //   if (Bit(sender_brain->readOutput(out++))){
+    //     for (int m = 0; m < messageSize; m++) message[m] = sender_brain->readOutput(out++);
+    //     break;
+    //   }
+    // }
+
+    //HACKY HACK DEBUG HACK
+    for (int m = 0; m < messageSize; m++) message[m] = boxes[targetBox-1][m];
+
+    // //receiver phase...
+    AgentAvatar receiver_avatar = AgentAvatar(grid,boxes,targetBox,false,visualQualia,touchQualia); 
+    receiver_avatar.respawn();
+    int receiver_walk_count = 0;
+    double receiver_score = 0;
+    bool first_eval = true;
+    int receiver_attempts = 0;
+    int receiver_found_item = 0;
+    double receiver_walking = 0.0;
+
+    for (int t = 0; t< lifetime; t++){
+      // set input
+      // if (debug || visualize) print_grid(receiver_avatar);
+      temp_senses = receiver_avatar.get_sensor_vector();
+      in = 0;
+      receiver_brain->setInput(in++, 1); //context bit is 1 for for receiver
+      for (auto& s:temp_senses) receiver_brain->setInput(in++, s);
+      if (messageAlwaysGiven || first_eval){
+        for (int m = 0; m < messageSize; m++) receiver_brain->setInput(in++, message[m]);
+        first_eval = false;
       }
-      else if (receiver_avatar.get_touch_box() != 0){
-        receiver_attempts++;
+      else{
+        for (int m = 0; m < messageSize; m++) receiver_brain->setInput(in++, 0);
+      }
+      // brain update
+      for (int bu = 0; bu < brainUpdates; bu++) receiver_brain->update();
+      // update world
+      out = 0;
+      auto move_ID = Bit(receiver_brain->readOutput(out++))*2 + Bit(receiver_brain->readOutput(out++));
+      receiver_avatar.walk(move_ID);
+      if (move_ID == 3) receiver_walking += (1/std::pow(2,++receiver_walk_count));
+      if (Bit(receiver_brain->readOutput(out++))){
+        if (receiver_avatar.get_touch_box() == targetBox){
+          receiver_attempts++;
+          auto score_delta = 10-receiver_attempts > 0 ? 10-receiver_attempts : 0;
+          receiver_found_item = 1;
+          // sender_score += score_delta;
+          receiver_score += score_delta;
+          break;
+        }
+        else if (receiver_avatar.get_touch_box() != 0){
+          receiver_attempts++;
+          if (receiver_attempts > 9){
+            break;
+          }
+        }
       }
     }
+    //max score for an organism should be (9 + 1 + 1) + (9 + 1) = 21
+    // sender->dataMap.append("score_sender", sender_score);
+    receiver->dataMap.append("score_receiver", receiver_score);
+    receiver->dataMap.append("receiver_found_item", receiver_found_item);
+    receiver->dataMap.append("receiver_attempts", receiver_attempts);
+    receiver->dataMap.append("receiver_walking", receiver_walking);
   }
-
-
-  sender->dataMap.append("score_sender", sender_score);
-  receiver->dataMap.append("score_receiver", receiver_score);
 }
 
 void
